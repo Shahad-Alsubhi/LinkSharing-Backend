@@ -19,7 +19,9 @@ const setRefreshToken = (res, refreshToken) => {
     res.cookie("refreshToken", refreshToken, {
         maxAge: 172800000, //2d
         path: "/users/auth/refresh-token",
-        httpOnly: true
+        httpOnly: true,
+        sameSite: "none",
+        secure: true
     });
 };
 exports.setRefreshToken = setRefreshToken;
