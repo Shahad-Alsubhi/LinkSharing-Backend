@@ -39,8 +39,8 @@ const requireLogin = async (
     return;
   }
 
-  try {
-    const { userId } = jwt.verify(token!, process.env.JWT_SECRET!) as {
+  try {    
+    const { userId } = jwt.verify(token!, process.env.ACCESS_TOKEN_SECRET!) as {
       userId: string;
     };
     req.userId = userId;
@@ -52,7 +52,7 @@ const requireLogin = async (
       console.error(e);
       res
         .status(500)
-        .json({ message: "Internal server error, Please try again later" });
+        .json({ message: "Internal server error" });
     }
   }
 };

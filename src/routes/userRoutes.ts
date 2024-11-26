@@ -6,27 +6,28 @@ import {
   signup,
   updateLinks,
   updateProfileDetails,
-  getUserById,
+  getUserById,refreshToken
 } from "../controllers/userController";
 import upload from "../config/cloudinary";
 
 const router = express.Router();
 
-router.post("/signup", validateSigninForm, signup);
+router.post("/auth/signup", validateSigninForm, signup);
 
-router.patch("/links", requireLogin, updateLinks);
+router.patch("/profile/links", requireLogin, updateLinks);
 
 router.patch(
-  "/profile-details",
+  "/profile",
   requireLogin,
   upload.single("picture"),
   updateProfileDetails
 );
 
-router.get("/user", requireLogin, getUserData);
+router.get("/profile", requireLogin, getUserData);
 
-router.get("/user/:id", getUserById);
+router.get("/:id", getUserById);
 
-router.post("/login", validateSigninForm, login);
+router.post("/auth/login", validateSigninForm, login);
+router.post("/auth/refresh-token",refreshToken)
 
 export default router;

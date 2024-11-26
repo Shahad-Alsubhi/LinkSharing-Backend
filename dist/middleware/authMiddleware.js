@@ -42,7 +42,7 @@ const requireLogin = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         return;
     }
     try {
-        const { userId } = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
+        const { userId } = jsonwebtoken_1.default.verify(token, process.env.ACCESS_TOKEN_SECRET);
         req.userId = userId;
         next();
     }
@@ -54,7 +54,7 @@ const requireLogin = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
             console.error(e);
             res
                 .status(500)
-                .json({ message: "Internal server error, Please try again later" });
+                .json({ message: "Internal server error" });
         }
     }
 });

@@ -12,16 +12,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserById = exports.login = exports.getUserData = exports.updateProfileDetails = exports.updateLinks = exports.signup = void 0;
+exports.refreshToken = exports.getUserById = exports.login = exports.getUserData = exports.updateProfileDetails = exports.updateLinks = exports.signup = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const tokenUtils_1 = require("../utils/tokenUtils");
 const signup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password } = req.body;
         const existingUser = yield User_1.default.findOne({ email });
         if (existingUser) {
-            res.status(400).json({ message: "email already exists" });
+            res.status(409).json({ message: "email already exists" });
             return;
         }
         const salt = yield bcryptjs_1.default.genSalt(10);
@@ -30,12 +31,11 @@ const signup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             email: email.toLowerCase(),
             password: hashedPassword,
         });
-        const token = jsonwebtoken_1.default.sign({ userId: user._id }, process.env.JWT_SECRET, {
-            expiresIn: "1d",
-        });
+        const { refreshToken, accessToken } = (0, tokenUtils_1.generateTokens)(user._id.toString());
+        (0, tokenUtils_1.setRefreshToken)(res, refreshToken);
         res.status(201).json({
             message: "User created successfully",
-            token,
+            accessToken,
         });
     }
     catch (e) {
@@ -55,14 +55,15 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return;
         }
         if (yield bcryptjs_1.default.compare(password, existingUser.password)) {
-            const token = jsonwebtoken_1.default.sign({ userId: existingUser._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const { refreshToken, accessToken } = (0, tokenUtils_1.generateTokens)(existingUser._id.toString());
+            (0, tokenUtils_1.setRefreshToken)(res, refreshToken);
             res.status(201).json({
                 message: "successful login",
-                token,
+                accessToken,
             });
             return;
         }
-        res.status(400).json({ message: "email/password incorrect" });
+        res.status(401).json({ message: "email/password incorrect" });
     }
     catch (e) {
         console.error("login error:", e);
@@ -127,3 +128,17 @@ const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     getUserData(req, res);
 });
 exports.getUserById = getUserById;
+const refreshToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const refreshToken = req.cookies.refreshToken;
+    if (refreshToken) {
+        const { userId } = jsonwebtoken_1.default.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+        if (userId) {
+            const { refreshToken, accessToken } = (0, tokenUtils_1.generateTokens)(userId);
+            (0, tokenUtils_1.setRefreshToken)(res, refreshToken);
+            res.status(201).json({ accessToken });
+            return;
+        }
+    }
+    res.status(401).json("no refresh token");
+});
+exports.refreshToken = refreshToken;

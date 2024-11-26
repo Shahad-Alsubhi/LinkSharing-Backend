@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { generateTokens, setRefreshToken } from "../utils/tokenUtils";
 
 const signup = async (req: Request, res: Response) => {
   try {
@@ -10,7 +11,7 @@ const signup = async (req: Request, res: Response) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      res.status(400).json({ message: "email already exists" });
+      res.status(409).json({ message: "email already exists" });
       return;
     }
     const salt = await bcrypt.genSalt(10);
@@ -19,13 +20,11 @@ const signup = async (req: Request, res: Response) => {
       email: email.toLowerCase(),
       password: hashedPassword,
     });
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: "1d",
-    });
-
+    const { refreshToken, accessToken } = generateTokens(user._id.toString());
+    setRefreshToken(res, refreshToken);
     res.status(201).json({
       message: "User created successfully",
-      token,
+      accessToken,
     });
   } catch (e) {
     console.error("Signup error:", e);
@@ -44,18 +43,18 @@ const login = async (req: Request, res: Response) => {
       return;
     }
     if (await bcrypt.compare(password, existingUser.password)) {
-      const token = jwt.sign(
-        { userId: existingUser._id },
-        process.env.JWT_SECRET!,
-        { expiresIn: "1d" }
+
+      const { refreshToken, accessToken } = generateTokens(
+        existingUser._id.toString()
       );
+      setRefreshToken(res, refreshToken);
       res.status(201).json({
         message: "successful login",
-        token,
+        accessToken,
       });
       return;
     }
-    res.status(400).json({ message: "email/password incorrect" });
+    res.status(401).json({ message: "email/password incorrect" });
   } catch (e) {
     console.error("login error:", e);
     res
@@ -101,8 +100,8 @@ const getUserData = async (req: Request, res: Response) => {
   try {
     const id = req.userId;
 
-    const userData = await User.findOne({ _id: id }, { password: 0 ,email:0});
-    
+    const userData = await User.findOne({ _id: id }, { password: 0, email: 0 });
+
     res.status(200).json({ userData });
   } catch (e) {
     console.error(e);
@@ -112,10 +111,36 @@ const getUserData = async (req: Request, res: Response) => {
   }
 };
 
-const getUserById=async(req: Request, res: Response)=>{
-  const {id}=req.params
-  req.userId=id
-  getUserData(req,res)
-}
+const getUserById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  req.userId = id;
+  getUserData(req, res);
+};
 
-export { signup, updateLinks, updateProfileDetails, getUserData,login,getUserById };
+const refreshToken = async (req: Request, res: Response) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (refreshToken) {
+    const { userId } = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!) as {
+      userId: string;
+    };
+    
+    if (userId) {
+      const { refreshToken, accessToken } = generateTokens(userId);
+      setRefreshToken(res, refreshToken);
+      res.status(201).json({ accessToken });
+      return
+    }
+  }
+  res.status(401).json("no refresh token")
+};
+
+export {
+  signup,
+  updateLinks,
+  updateProfileDetails,
+  getUserData,
+  login,
+  getUserById,
+  refreshToken,
+};
